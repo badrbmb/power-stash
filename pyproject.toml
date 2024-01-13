@@ -1,0 +1,15 @@
+[tool.poetry]
+name = "power-stash"
+version = "0.1.0"
+description = "Python package to fetch, process and store electricity data from different providers."
+authors = ["Badr Ben m'barek <badr.benb@gmail.com>"]
+readme = "README.md"
+packages = [{include = "power_stash"}]
+
+[tool.poetry.dependencies]
+python = ">=3.10"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
