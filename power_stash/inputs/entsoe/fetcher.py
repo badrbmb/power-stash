@@ -27,7 +27,7 @@ class EntsoeFetcher(FetcherInterface):
                     country_code=request.area,
                     start=request.start,
                     end=request.end,
-                    nett=request.net_number,
+                    nett=(request.net_number or False),
                     psr_type=None,  # all types
                 )
             case RequestType.DAY_AHEAD_PRICE:
@@ -35,7 +35,7 @@ class EntsoeFetcher(FetcherInterface):
                     country_code=request.area,
                     start=request.start,
                     end=request.end,
-                    resolution=request.resolution,
+                    resolution=(request.resolution or "60T"),
                 )
             case RequestType.INSTALLED_GENERATION_CAPACITY:
                 result = self.client.query_installed_generation_capacity(
