@@ -1,4 +1,4 @@
-# list of iso3 countries member of ENTSO-E
+# list of iso3 countries of ENTSO-E members
 ENTSO_E_ISO3_LIST = [
     "NOR",
     "FRA",
