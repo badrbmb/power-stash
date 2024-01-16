@@ -29,9 +29,9 @@ def parse_datetime(datetime_str: str) -> dt.datetime:
     """Convert dates to datetime objects."""
     for fmt in DEFAULT_DATETIME_FORMATS:
         try:
-            result = dt.strptime(datetime_str, fmt)
+            result = dt.datetime.strptime(datetime_str, fmt)
             if result.tzinfo is None:
-                result.tzinfo = dt.timezone.utc
+                result = result.replace(tzinfo=dt.timezone.utc)
                 logger.debug(
                     event="Missing timezone, assuming UTC.",
                     raw=datetime_str,
@@ -102,8 +102,8 @@ def download_data(
 ) -> None:
     """CLI method to download datasets."""
     # parse datetime strs
-    start = parse_datetime(start)
-    end = parse_datetime(end)
+    start_timestamp = parse_datetime(start)
+    end_timestamp = parse_datetime(end)
 
     # load the ressources
     request_builder, fetcher, processor = load_source(source)
@@ -118,8 +118,8 @@ def download_data(
     )
 
     service.download_data(
-        start=start,
-        end=end,
+        start=start_timestamp,
+        end=end_timestamp,
     )
 
 

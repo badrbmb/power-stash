@@ -7,5 +7,5 @@ from power_stash.models.storage.database import BaseTableModel  # noqa: F401
 
 # Add in the list all models for which we want to create hypertables for
 hypter_tables = [
-    (EntsoeConsumption, EntsoeConsumption.timestamp.name),
+    (EntsoeConsumption, "timestamp"),
 ]

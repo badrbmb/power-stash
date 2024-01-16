@@ -37,13 +37,13 @@ class PowerConsumerService:
     def _process_requests(
         self,
         all_requests: list[BaseRequest],
-    ) -> tuple[list[BaseRequest, list[BaseRequest]]]:
+    ) -> tuple[list[BaseRequest], list[BaseRequest]]:
         successes = []
         failures = []
         for request in all_requests:
             try:
                 # fetch data
-                df_raw = self.fetcher.fecth_data(request)
+                df_raw = self.fetcher.fecth_data(request=request)
                 # process
                 records = self.processor.transform(df_raw=df_raw, request=request)
                 # store

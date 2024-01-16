@@ -1,4 +1,4 @@
-from pandas import DataFrame
+import pandas as pd
 
 from power_stash.inputs.entsoe import models
 from power_stash.inputs.entsoe.request import EntsoeRequest, RequestType
@@ -7,7 +7,7 @@ from power_stash.models.storage.database import BaseTableModel
 
 
 class EntsoeProcessor(BaseProcessor):
-    def transform(self, *, df_raw: DataFrame, request: EntsoeRequest) -> list[BaseTableModel]:
+    def transform(self, *, df_raw: pd.DataFrame, request: EntsoeRequest) -> list[BaseTableModel]:
         """Transform raw DataFrame to parsed model."""
         match request.request_type:
             case RequestType.CONSUMPTION:

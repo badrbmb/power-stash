@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Sequence
 
 import pandas as pd
 import structlog
@@ -10,14 +10,15 @@ from sqlmodel.sql.expression import Select, SelectOfScalar
 
 from power_stash.models.storage.database import DatabaseRepository
 from power_stash.outputs.database.config import DatabaseSettings
-from power_stash.outputs.database.tables import BaseTableModel, SQLModel, hypter_tables
+from power_stash.outputs.database.tables import (BaseTableModel, SQLModel,
+                                                 hypter_tables)
 
 logger = structlog.get_logger()
 
 
 class SqlRepository(DatabaseRepository):
     def __init__(self) -> None:
-        self.db_settings = DatabaseSettings()
+        self.db_settings = DatabaseSettings() # type: ignore
         self.engine = create_engine(self.db_settings.connection, echo=False)
         self.init_db()
         self.tables = self.list_tables()
@@ -74,7 +75,7 @@ class SqlRepository(DatabaseRepository):
     def _get_existing_records_uids(
         self,
         model_type: BaseTableModel,
-    ) -> list[str]:
+    ) -> Sequence[str]:
         with Session(self.engine) as session:
             statement = select(model_type.uid)
             result = session.exec(statement)
@@ -115,7 +116,7 @@ class SqlRepository(DatabaseRepository):
         *,
         statement: Select | SelectOfScalar,
         return_df: bool = True,
-    ) -> list[BaseTableModel | Any] | pd.DataFrame:
+    ) -> Sequence[BaseTableModel | Any] | pd.DataFrame:
         """Query based on select statement."""
         if not return_df:
             with Session(self.engine) as session:

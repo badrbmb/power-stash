@@ -5,7 +5,7 @@ from power_stash.inputs.entsoe.config import EntsoeEnv
 from power_stash.inputs.entsoe.request import EntsoeRequest, RequestType
 from power_stash.models.fetcher import FetcherInterface
 
-entsoe_env = EntsoeEnv()
+entsoe_env = EntsoeEnv() # type: ignore
 
 DEFAULT_RESOLUTION_DAY_HEAD_PRICE: str = "60T"
 
@@ -19,33 +19,35 @@ class EntsoeFetcher(FetcherInterface):
         )
 
     def fecth_data(self, *, request: EntsoeRequest) -> pd.DataFrame:  # noqa: D102
+        _start = pd.to_datetime(request.start)
+        _end = pd.to_datetime(request.end)
         match request.request_type:
             case RequestType.CONSUMPTION:
                 result = self.client.query_load(
                     country_code=request.area,
-                    start=request.start,
-                    end=request.end,
+                    start=_start,
+                    end=_end,
                 )
             case RequestType.GENERATION:
                 result = self.client.query_generation(
                     country_code=request.area,
-                    start=request.start,
-                    end=request.end,
+                    start=_start,
+                    end=_end,
                     nett=(request.net_number or RETURN_NET_GENERATTION),
                     psr_type=None,  # all types
                 )
             case RequestType.DAY_AHEAD_PRICE:
                 result = self.client.query_day_ahead_prices(
                     country_code=request.area,
-                    start=request.start,
-                    end=request.end,
+                    start=_start,
+                    end=_end,
                     resolution=(request.resolution or DEFAULT_RESOLUTION_DAY_HEAD_PRICE),
                 )
             case RequestType.INSTALLED_GENERATION_CAPACITY:
                 result = self.client.query_installed_generation_capacity(
                     country_code=request.area,
-                    start=request.start,
-                    end=request.end,
+                    start=_start,
+                    end=_end,
                     psr_type=None,  # all types
                 )
             case _:
