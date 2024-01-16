@@ -29,7 +29,7 @@ def parse_datetime(datetime_str: str) -> dt.datetime:
     """Convert dates to datetime objects."""
     for fmt in DEFAULT_DATETIME_FORMATS:
         try:
-            result = dt.datetime.strptime(datetime_str, fmt)
+            result = dt.datetime.strptime(datetime_str, fmt)  # noqa: DTZ007
             if result.tzinfo is None:
                 result = result.replace(tzinfo=dt.timezone.utc)
                 logger.debug(
