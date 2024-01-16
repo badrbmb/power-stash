@@ -89,34 +89,26 @@ class SqlRepository(DatabaseRepository):
         if not records:
             return False
 
-        try:
-            # get SQLModel class
-            model_type = type(records[0])
+        # get SQLModel class
+        model_type = type(records[0])
 
-            # remove existing records
-            existing_uids = self._get_existing_records_uids(
-                model_type=model_type,
-            )
-            new_records = [t for t in records if t.uid not in existing_uids]
+        # remove existing records
+        existing_uids = self._get_existing_records_uids(
+            model_type=model_type,
+        )
+        new_records = [t for t in records if t.uid not in existing_uids]
 
-            # store all new records
-            with Session(self.engine) as session:
-                session.bulk_save_objects(new_records)
-                session.commit()
+        # store all new records
+        with Session(self.engine) as session:
+            session.bulk_save_objects(new_records)
+            session.commit()
 
-            logger.debug(
-                event="Bulk add records successful!",
-                count_new_records=len(new_records),
-                count_requested_records=len(records),
-            )
-            return True
-        except Exception as e:
-            # TODO: remove broad expection
-            logger.error(
-                event="Failed to bulk add",
-                error=e,
-            )
-            return False
+        logger.debug(
+            event="Bulk add records successful!",
+            count_new_records=len(new_records),
+            count_requested_records=len(records),
+        )
+        return True
 
     def query(
         self,
