@@ -7,6 +7,10 @@ from power_stash.models.fetcher import FetcherInterface
 
 entsoe_env = EntsoeEnv()
 
+DEFAULT_RESOLUTION_DAY_HEAD_PRICE: str = "60T"
+
+RETURN_NET_GENERATTION: bool = False
+
 
 class EntsoeFetcher(FetcherInterface):
     def __init__(self) -> None:
@@ -27,7 +31,7 @@ class EntsoeFetcher(FetcherInterface):
                     country_code=request.area,
                     start=request.start,
                     end=request.end,
-                    nett=(request.net_number or False),
+                    nett=(request.net_number or RETURN_NET_GENERATTION),
                     psr_type=None,  # all types
                 )
             case RequestType.DAY_AHEAD_PRICE:
@@ -35,7 +39,7 @@ class EntsoeFetcher(FetcherInterface):
                     country_code=request.area,
                     start=request.start,
                     end=request.end,
-                    resolution=(request.resolution or "60T"),
+                    resolution=(request.resolution or DEFAULT_RESOLUTION_DAY_HEAD_PRICE),
                 )
             case RequestType.INSTALLED_GENERATION_CAPACITY:
                 result = self.client.query_installed_generation_capacity(
