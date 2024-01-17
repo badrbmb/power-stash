@@ -102,8 +102,14 @@ class SqlRepository(DatabaseRepository):
 
         # store all new records
         with Session(self.engine) as session:
-            session.bulk_save_objects(new_records)
-            session.commit()
+            try:
+                with session.begin():
+                    session.bulk_save_objects(new_records)
+            except Exception as e:
+                session.rollback()
+                raise e
+            else:
+                session.commit()
 
         logger.debug(
             event="Bulk add records successful!",

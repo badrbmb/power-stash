@@ -49,7 +49,7 @@ class EntsoeProcessor(BaseProcessor):
         records = df.apply(
             lambda x: base_model.from_raw_record(data=x, area=request.area),
             axis=1,
-        ).values.tolist()
+        ).tolist()
 
         del df
 
