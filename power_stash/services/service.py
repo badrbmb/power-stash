@@ -44,6 +44,12 @@ class PowerConsumerService:
             try:
                 # fetch data
                 df_raw = self.fetcher.fecth_data(request=request)
+                if df_raw is None:
+                    logger.debug(
+                        event="Fetching data returned no results!",
+                        request=request,
+                    )
+                    continue
                 # process
                 records = self.processor.transform(df_raw=df_raw, request=request)
                 # store

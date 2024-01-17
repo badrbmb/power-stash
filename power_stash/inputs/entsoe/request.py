@@ -14,9 +14,10 @@ class RequestType(str, Enum):
     DAY_AHEAD_PRICE = "day-ahead price"
     INSTALLED_GENERATION_CAPACITY = "installed generation capacity"
     EXCHANGES = "exchanges"
-    EXCHANGE_FORECAST = "exchange forecast"
-    GENERATION_FORECAST = "generation forecast"
-    CONSUMPTION_FORECAST = "consumption forecast"
+    # TODO: extend to other request types.
+    # EXCHANGE_FORECAST = "exchange forecast"
+    # GENERATION_FORECAST = "generation forecast"
+    # CONSUMPTION_FORECAST = "consumption forecast"
 
     def __str__(self) -> str:  # noqa: D105
         return self.value
@@ -53,7 +54,7 @@ class EntsoeRequestBuilder(BaseRequestBuilder):
         for all request_types defined in enum RequestType.
         """
         all_requests = []
-        for area in self.areas:
+        for area in self.areas[:1]:
             for request_type in self.request_types:
                 new_request = EntsoeRequest(
                     start=start,
