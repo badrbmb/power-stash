@@ -13,8 +13,8 @@ class RequestType(str, Enum):
     GENERATION = "generation"
     DAY_AHEAD_PRICE = "day-ahead price"
     INSTALLED_GENERATION_CAPACITY = "installed generation capacity"
-    EXCHANGES = "exchanges"
     # TODO: extend to other request types.
+    # EXCHANGES = "exchanges"
     # EXCHANGE_FORECAST = "exchange forecast"
     # GENERATION_FORECAST = "generation forecast"
     # CONSUMPTION_FORECAST = "consumption forecast"
