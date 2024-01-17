@@ -10,15 +10,14 @@ from sqlmodel.sql.expression import Select, SelectOfScalar
 
 from power_stash.models.storage.database import DatabaseRepository
 from power_stash.outputs.database.config import DatabaseSettings
-from power_stash.outputs.database.tables import (BaseTableModel, SQLModel,
-                                                 hypter_tables)
+from power_stash.outputs.database.tables import BaseTableModel, SQLModel, hypter_tables
 
 logger = structlog.get_logger()
 
 
 class SqlRepository(DatabaseRepository):
     def __init__(self) -> None:
-        self.db_settings = DatabaseSettings() # type: ignore
+        self.db_settings = DatabaseSettings()  # type: ignore
         self.engine = create_engine(self.db_settings.connection, echo=False)
         self.init_db()
         self.tables = self.list_tables()
@@ -44,7 +43,9 @@ class SqlRepository(DatabaseRepository):
                 statement=text(create_hypertable_query),
                 params={"table_name": table_name, "time_column_name": time_column_name},
             )
+            session.commit()
         except NotSupportedError as e:
+            session.rollback()
             # hypertable might be full, cannot create hypertable in that case
             if "not empty" not in str(e):
                 raise

@@ -14,7 +14,7 @@ class EntsoeProcessor(BaseProcessor):
         df.reset_index(inplace=True)
         match request.request_type:
             case RequestType.CONSUMPTION:
-                base_model = models.EntsoeConsumption
+                base_model = models.EntsoeHourlyConsumption
             case RequestType.GENERATION:
                 # melt multi-index columns
                 df = df.melt(
@@ -28,11 +28,19 @@ class EntsoeProcessor(BaseProcessor):
                     columns="type",
                     values="value",
                 ).reset_index()
-                base_model = models.EntsoeGeneration
+                base_model = models.EntsoeHourlyGeneration
             case RequestType.DAY_AHEAD_PRICE:
-                base_model = models.EntsoeDayAheadPrice
+                base_model = models.EntsoeHourlyDayAheadPrice
             case RequestType.INSTALLED_GENERATION_CAPACITY:
-                raise NotImplementedError
+                # melt columns
+                df = df.melt(
+                    id_vars="timestamp",
+                    value_name="Installed Capacity",
+                    var_name="resource",
+                )
+                df["year"] = df["timestamp"].apply(lambda x: x.year)
+                df.drop(columns="timestamp", inplace=True)
+                base_model = models.EntsoeHourlyGeneration
             case _:
                 raise NotImplementedError(
                     f"fetch_data for request_type={request.request_type} not implemented!",

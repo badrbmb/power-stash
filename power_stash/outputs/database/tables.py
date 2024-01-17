@@ -3,15 +3,15 @@
 from sqlmodel import SQLModel  # noqa: F401
 
 from power_stash.inputs.entsoe.models import (
-    EntsoeConsumption,
-    EntsoeDayAheadPrice,
-    EntsoeGeneration,
+    EntsoeHourlyConsumption,
+    EntsoeHourlyDayAheadPrice,
+    EntsoeHourlyGeneration,
 )
 from power_stash.models.storage.database import BaseTableModel  # noqa: F401
 
 # Add in the list all models for which we want to create hypertables for
 hypter_tables = [
-    (EntsoeConsumption, "timestamp"),
-    (EntsoeGeneration, "timestamp"),
-    (EntsoeDayAheadPrice, "timestamp"),
+    (EntsoeHourlyConsumption, "timestamp"),
+    (EntsoeHourlyGeneration, "timestamp"),
+    (EntsoeHourlyDayAheadPrice, "timestamp"),
 ]

@@ -46,7 +46,7 @@ class PowerConsumerService:
                 df_raw = self.fetcher.fecth_data(request=request)
                 if df_raw is None:
                     logger.debug(
-                        event="Fetching data returned no results!",
+                        event=r"Fetching data returned no results ¯\_(ツ)_/¯",
                         request=request,
                     )
                     continue
@@ -54,10 +54,14 @@ class PowerConsumerService:
                 records = self.processor.transform(df_raw=df_raw, request=request)
                 # store
                 _ = self.repository.bulk_add(records=records)
+                logger.info(
+                    event=r"Processing request successful \( ﾟヮﾟ)/",
+                    request=request,
+                )
                 successes.append(request)
             except Exception as e:
                 logger.error(
-                    event="Processing request failed!",
+                    event=r"Processing request failed ლ(ಠ益ಠლ)",
                     request=request,
                     error=e,
                 )
