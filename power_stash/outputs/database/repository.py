@@ -57,6 +57,13 @@ class SqlRepository(DatabaseRepository):
             for model, time_column_name in hypter_tables:
                 self.create_hypertable(session, model, time_column_name)
 
+    def exists(self, *, record: BaseTableModel) -> bool:
+        """Check if the record already exists in database."""
+        with Session(self.engine) as session:
+            statement = select(BaseTableModel.uid).where(BaseTableModel.uid == record.uid)
+            result = session.exec(statement).first()
+            return result is not None
+
     @staticmethod
     def list_tables() -> list[str]:
         """List all tables."""

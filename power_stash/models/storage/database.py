@@ -20,6 +20,10 @@ class DatabaseRepository(Protocol):
         """Initialise database."""
         pass
 
+    def exists(self, *, record: BaseTableModel) -> bool:
+        """Check if the record already exists in database."""
+        pass
+
     def add(self, *, record: BaseTableModel) -> bool:
         """Add record to database."""
         pass
