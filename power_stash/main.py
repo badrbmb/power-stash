@@ -4,6 +4,7 @@ from typing import Callable
 
 import structlog
 import typer
+from dask.diagnostics import ProgressBar
 from distributed import Client, SpecCluster
 from typing_extensions import Annotated
 
@@ -180,13 +181,14 @@ def download_data(
     )
 
     try:
-        service.download_data(
-            start=start_timestamp,
-            end=end_timestamp,
-            # set to None when running default scheduler, or "synchronous" if override to debug
-            # more info: https://docs.dask.org/en/stable/scheduling.html
-            scheduler=None,
-        )
+        with ProgressBar():
+            service.download_data(
+                start=start_timestamp,
+                end=end_timestamp,
+                # scheduler option: "threads", "process" or "synchronous" to override default.
+                # more info: https://docs.dask.org/en/stable/scheduling.html
+                scheduler="threads",
+            )
     except Exception as e:
         raise e
     finally:

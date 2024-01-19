@@ -73,7 +73,7 @@ class EntsoeHourlyGeneration(BaseTableModel, table=True):
         return cls(
             timestamp=timestamp.to_pydatetime(),
             aggregated_value=data["Actual Aggregated"],
-            consumption_value=data["Actual Consumption"],
+            consumption_value=data.get("Actual Consumption"),
             unit="MW",
             area=area,
             resource=data["resource"],

@@ -16,6 +16,14 @@ class EntsoeProcessor(BaseProcessor):
             case RequestType.CONSUMPTION:
                 base_model = models.EntsoeHourlyConsumption
             case RequestType.GENERATION:
+                if not isinstance(df.columns, pd.MultiIndex):
+                    # re-create multi index
+                    df.set_index("timestamp", inplace=True)
+                    df.columns = pd.MultiIndex.from_tuples(
+                        [(c, "Actual Aggregated") for c in df.columns],
+                        names=["resource", "type"],
+                    )
+                    df.reset_index(inplace=True)
                 # melt multi-index columns
                 df = df.melt(
                     id_vars=["timestamp"],

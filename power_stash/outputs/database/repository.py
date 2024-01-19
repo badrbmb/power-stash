@@ -121,6 +121,7 @@ class SqlRepository(DatabaseRepository):
 
         logger.debug(
             event="Bulk add records successful!",
+            destination_table=model_type,
             count_new_records=len(new_records),
             count_requested_records=len(records),
         )

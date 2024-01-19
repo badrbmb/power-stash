@@ -4,3 +4,6 @@ ROOT_DIR = Path(__file__).parent.parent
 
 DATA_DIR = ROOT_DIR / "data"
 DATA_DIR.mkdir(exist_ok=True)
+
+ERROR_DIR = DATA_DIR / "errors"
+ERROR_DIR.mkdir(exist_ok=True)

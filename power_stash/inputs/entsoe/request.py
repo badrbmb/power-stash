@@ -54,8 +54,10 @@ class EntsoeRequestBuilder(BaseRequestBuilder):
         for all request_types defined in enum RequestType.
         """
         all_requests = []
-        for area in self.areas[:1]:
+        for area in self.areas:
             for request_type in self.request_types:
+                if request_type != RequestType.GENERATION:
+                    continue
                 new_request = EntsoeRequest(
                     start=start,
                     end=end,
