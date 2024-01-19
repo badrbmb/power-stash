@@ -38,9 +38,7 @@ class EntsoeProcessor(BaseProcessor):
                     value_name="Installed Capacity",
                     var_name="resource",
                 )
-                df["year"] = df["timestamp"].apply(lambda x: x.year)
-                df.drop(columns="timestamp", inplace=True)
-                base_model = models.EntsoeHourlyGeneration
+                base_model = models.EntsoeYearlyInstalledCapacity
             case _:
                 raise NotImplementedError(
                     f"fetch_data for request_type={request.request_type} not implemented!",

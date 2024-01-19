@@ -59,8 +59,9 @@ class SqlRepository(DatabaseRepository):
 
     def exists(self, *, record: BaseTableModel) -> bool:
         """Check if the record already exists in database."""
+        record_model = type(record)
         with Session(self.engine) as session:
-            statement = select(BaseTableModel.uid).where(BaseTableModel.uid == record.uid)
+            statement = select(record_model.uid).where(record_model.uid == record.uid)
             result = session.exec(statement).first()
             return result is not None
 

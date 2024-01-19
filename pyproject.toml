@@ -17,6 +17,9 @@ sqlmodel = "^0.0.14"
 pint = "^0.23"
 psycopg2-binary = "^2.9.9"
 typer = {extras = ["all"], version = "^0.9.0"}
+dask = "^2024.1.0"
+distributed = "^2024.1.0"
+bokeh = ">=2.4.2,<3.0.dev0 || >=3.1.dev0"
 
 
 [tool.poetry.group.geo.dependencies]
@@ -33,6 +36,10 @@ matplotlib = "^3.8.2"
 mapclassify = "^2.6.1"
 plotly = "^5.18.0"
 nbformat = "^5.9.2"
+
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.4.4"
 
 [build-system]
 requires = ["poetry-core"]
