@@ -6,6 +6,7 @@ from entsoe.mappings import Area
 from pydantic import Field
 
 from power_stash.models.request import BaseRequest, BaseRequestBuilder
+from power_stash.utils import generate_monthly_datetime_chunks
 
 
 class RequestType(str, Enum):
@@ -47,23 +48,37 @@ class EntsoeRequestBuilder(BaseRequestBuilder):
         self.areas = list(Area)
         self.request_types = list(RequestType)
 
-    def build_default_requests(self, start: datetime, end: datetime) -> list[EntsoeRequest]:
+    def build_default_requests(
+        self,
+        start: datetime,
+        end: datetime,
+        chunk_months: int | None = None,
+    ) -> list[EntsoeRequest]:
         """Return all the default requests for the given dates.
 
         Download all areas as defined in enum Area,
         for all request_types defined in enum RequestType.
         """
+        if chunk_months:
+            starts_ends = generate_monthly_datetime_chunks(
+                start=start,
+                end=end,
+                n_months=chunk_months,
+            )
+        else:
+            starts_ends = [(start, end)]
         all_requests = []
-        for area in self.areas:
-            for request_type in self.request_types:
-                if request_type != RequestType.GENERATION:
-                    continue
-                new_request = EntsoeRequest(
-                    start=start,
-                    end=end,
-                    area=area,
-                    request_type=request_type,
-                )
-                all_requests.append(new_request)
+        for _start, _end in starts_ends:
+            for area in self.areas:
+                for request_type in self.request_types:
+                    if request_type != RequestType.CONSUMPTION:
+                        continue
+                    new_request = EntsoeRequest(
+                        start=_start,
+                        end=_end,
+                        area=area,
+                        request_type=request_type,
+                    )
+                    all_requests.append(new_request)
 
         return all_requests
