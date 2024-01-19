@@ -6,7 +6,7 @@ from enum import Enum
 from pydantic import BaseModel, ConfigDict, ValidationError, field_validator
 
 
-class RequestStatus(Enum):
+class RequestStatusType(Enum):
     SUCCESS = "success"
     FAILURE = "failure"
     NO_DATA = "no data"
@@ -17,7 +17,7 @@ class BaseRequest(BaseModel):
 
     start: dt.datetime
     end: dt.datetime
-    _status: RequestStatus | None = None
+    _status: RequestStatusType | None = None
 
     @field_validator("start", "end")
     def validate_date(cls, v: dt.datetime) -> dt.datetime:
@@ -32,12 +32,12 @@ class BaseRequest(BaseModel):
         return int(hashlib.sha1(serialized_data).hexdigest(), 16)  # noqa: S324
 
     @property
-    def status(self) -> RequestStatus | None:
+    def status(self) -> RequestStatusType | None:
         """The ingestion status of teh request."""
         return self._status
 
     @status.setter
-    def status(self, value: RequestStatus) -> None:
+    def status(self, value: RequestStatusType) -> None:
         """Set the value of status using the provided value."""
         self._status = value
 

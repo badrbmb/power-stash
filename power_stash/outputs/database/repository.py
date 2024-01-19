@@ -1,4 +1,4 @@
-from typing import Any, Sequence
+from typing import Any, Optional, Sequence, Type
 
 import pandas as pd
 import structlog
@@ -40,9 +40,9 @@ class SqlRepository(DatabaseRepository):
 
         try:
             session.exec(
-                statement=text(create_hypertable_query),
+                statement=text(create_hypertable_query),  # type: ignore
                 params={"table_name": table_name, "time_column_name": time_column_name},
-            )
+            )  # type: ignore
             session.commit()
         except NotSupportedError as e:
             session.rollback()
@@ -136,11 +136,21 @@ class SqlRepository(DatabaseRepository):
 
         logger.debug(
             event="Bulk add records successful!",
-            destination_table=model_type,
+            destination_table=model_type.__name__,
             count_new_records=len(new_records),
             count_requested_records=len(records),
         )
         return True
+
+    def get(
+        self,
+        *,
+        record_type: Type[BaseTableModel],
+        record_uid: str,
+    ) -> Optional[BaseTableModel]:
+        """Get a record by uid."""
+        with Session(self.engine) as session:
+            return session.get(record_type, record_uid)
 
     def query(
         self,

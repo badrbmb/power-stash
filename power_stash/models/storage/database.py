@@ -1,11 +1,11 @@
 import datetime as dt
 from abc import ABC
-from typing import Any, Protocol
+from typing import Any, Optional, Protocol, Type
 
 from sqlmodel import JSON, Column, Field, SQLModel
 from sqlmodel.sql.expression import Select, SelectOfScalar
 
-from power_stash.models.request import BaseRequest, RequestStatus
+from power_stash.models.request import BaseRequest, RequestStatusType
 
 
 class BaseTableModel(ABC, SQLModel):
@@ -16,19 +16,19 @@ class BaseTableModel(ABC, SQLModel):
     )
 
 
-class RequestStatusModel(BaseTableModel):
+class RequestStatus(BaseTableModel, table=True):
+    name: str
     start: dt.datetime
     end: dt.datetime
-    status: RequestStatus
+    status: RequestStatusType | None
     request: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
 
     @classmethod
-    def from_request(cls, request: BaseRequest) -> "RequestStatusModel":  # noqa: ANN102
+    def from_request(cls, request: BaseRequest) -> "RequestStatus":  # noqa: ANN102
         """Create a RequestStatusModel instance from a BaseRequest."""
-        if request.status is None:
-            raise ValueError("Cannot define a request status model without status!")
         return cls(
             uid=f"{hash(request)!s}",
+            name=type(request).__name__,
             start=request.start,
             end=request.end,
             status=request.status,
@@ -57,6 +57,15 @@ class DatabaseRepository(Protocol):
 
     def bulk_add(self, *, records: list[BaseTableModel]) -> None:
         """Bulk add records, with update logic."""
+        pass
+
+    def get(
+        self,
+        *,
+        record_type: Type[BaseTableModel],
+        record_uid: str,
+    ) -> Optional[BaseTableModel]:
+        """Get a record by uid."""
         pass
 
     def query(self, *, statement: Select | SelectOfScalar, return_df: bool = False) -> None:

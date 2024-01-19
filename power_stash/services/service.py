@@ -1,21 +1,15 @@
 import datetime as dt
 import time
-from pathlib import Path
 from typing import Callable
 
 import pandas as pd
 import structlog
 from dask.bag.core import Bag, from_sequence
 
-from power_stash.config import ERROR_DIR
 from power_stash.models.fetcher import FetcherInterface
 from power_stash.models.processor import BaseProcessor
-from power_stash.models.request import BaseRequest, BaseRequestBuilder, RequestStatus
-from power_stash.models.storage.database import (
-    BaseTableModel,
-    DatabaseRepository,
-    RequestStatusModel,
-)
+from power_stash.models.request import BaseRequest, BaseRequestBuilder, RequestStatusType
+from power_stash.models.storage.database import BaseTableModel, DatabaseRepository, RequestStatus
 
 logger = structlog.get_logger()
 
@@ -32,15 +26,11 @@ class PowerConsumerService:
         fetcher: FetcherInterface,
         processor: BaseProcessor,
         repository_factory: Callable,
-        error_logs_dir: Path = ERROR_DIR,
     ) -> None:
         self.request_builder = request_builder
         self.fetcher = fetcher
         self.processor = processor
         self.repository_factory = repository_factory
-        self.start_time = time.perf_counter()
-        self.error_logs_dir = error_logs_dir / str(self.start_time)
-        self.error_logs_dir.mkdir(exist_ok=True)
 
     def _build_default_requests(
         self,
@@ -61,18 +51,44 @@ class PowerConsumerService:
         self,
         repository: DatabaseRepository,
         request: BaseRequest,
-    ) -> RequestStatusModel:
+    ) -> RequestStatus:
         """Helper function to save status of different requets."""
-        request_status = RequestStatusModel.from_request(request)
+        request_status = RequestStatus.from_request(request)
         repository.add_or_update(record=request_status)
         return request_status
+
+    def _filter_new_or_failed_request(
+        self,
+        request: BaseRequest,
+    ) -> bool:
+        """Filter out successful requests."""
+        repository = self._create_repository()
+        request_status = RequestStatus.from_request(request)
+        existing_record = repository.get(
+            record_type=type(request_status),
+            record_uid=request_status.uid,
+        )
+        if existing_record is None:
+            return True
+        return existing_record.status != RequestStatusType.SUCCESS
 
     def _download(self, request: BaseRequest) -> tuple[pd.DataFrame | None, BaseRequest]:
         logger.debug(
             event="Init. download request...",
             request=request,
         )
-        df_raw = self.fetcher.fecth_data(request=request)
+        try:
+            df_raw = self.fetcher.fetch_data(request=request)
+        except Exception as e:
+            logger.error(
+                event="Failed fetching data.",
+                error=e,
+                request=request,
+            )
+            request.status = RequestStatusType.FAILURE
+            repository = self._create_repository()
+            self._update_registry(repository=repository, request=request)
+            df_raw = None
         return df_raw, request
 
     def _transform(
@@ -89,7 +105,7 @@ class PowerConsumerService:
         except Exception as e:
             records = None
             request.error = str(e)
-            request.status = RequestStatus.FAILURE
+            request.status = RequestStatusType.FAILURE
             logger.error(
                 event="Failed transforming request!",
                 request=request,
@@ -100,7 +116,7 @@ class PowerConsumerService:
     def _add_to_repository(
         self,
         records_request: tuple[list[BaseTableModel] | None, BaseRequest],
-    ) -> RequestStatusModel:
+    ) -> RequestStatus:
         """Helper function to filter out existing records and add new one."""
         records, request = records_request
         repository = self._create_repository()
@@ -108,10 +124,10 @@ class PowerConsumerService:
             # store records in db
             repository.bulk_add(records=records)
             # update status
-            request.status = RequestStatus.SUCCESS
+            request.status = RequestStatusType.SUCCESS
         else:
             if request.status is None:
-                request.status = RequestStatus.FAILURE
+                request.status = RequestStatusType.FAILURE
         # update registry
         request_status = self._update_registry(repository=repository, request=request)
         return request_status
@@ -120,14 +136,14 @@ class PowerConsumerService:
         # TODO: add option to save failed requests for debug...
         dask_bag = (
             from_sequence(all_requests)
+            # filter already sucessful requests
+            .filter(self._filter_new_or_failed_request)
             .map(self._download)
             # filter out failed downloads
             .filter(lambda x: x[0] is not None)
             .map(self._transform)
             # store in repository
             .map(self._add_to_repository)
-            # keep only error paths
-            .filter(lambda x: x is not None)
         )
         return dask_bag
 
@@ -139,6 +155,7 @@ class PowerConsumerService:
         chunk_months: int = DEFAULT_MONTHLY_CHUNKS,
     ) -> None:
         """Download all power data between start and end timestamps."""
+        start_time = time.perf_counter()
         logger.info(
             event="Download data: START",
             start=start,
@@ -158,17 +175,19 @@ class PowerConsumerService:
         )
         pipeline = self._build_dask_pipeline(all_requests)
 
-        error_paths: list[Path] = pipeline.compute(scheduler=scheduler)
+        list_status: list[RequestStatus] = pipeline.compute(scheduler=scheduler)
 
-        if len(error_paths) > 0:
+        failed_status = [t for t in list_status if t.status == RequestStatusType.FAILURE]
+
+        if len(failed_status) > 0:
             logger.error(
-                event="Failed processing requests!",
-                num_failed_request=len(error_paths),
-                error_logs_dir=self.error_logs_dir,
+                event="Failed processing some requests!",
+                num_failed_request=len(failed_status),
             )
 
         end_time = time.perf_counter()
         logger.info(
             event="Download datasets: END",
-            elapsed_time_secs=end_time - self.start_time,
+            elapsed_time_secs=end_time - start_time,
+            total_processed_requests=len(list_status),
         )
