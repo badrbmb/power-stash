@@ -81,6 +81,21 @@ class SqlRepository(DatabaseRepository):
             session.commit()
         return True
 
+    def add_or_update(self, *, record: BaseTableModel) -> bool:
+        """Add or update record."""
+        with Session(self.engine) as session:
+            existing_record = session.get(type(record), record.uid)
+            if existing_record:
+                # Assuming record is a dictionary-like object
+                for field, value in record.items():
+                    if field != "uid":
+                        setattr(existing_record, field, value)
+                session.commit()
+            else:
+                session.add(record)
+                session.commit()
+        return True
+
     def _get_existing_records_uids(
         self,
         model_type: BaseTableModel,

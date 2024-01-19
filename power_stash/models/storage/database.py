@@ -1,16 +1,39 @@
+import datetime as dt
 from abc import ABC
-from typing import Protocol
+from typing import Any, Protocol
 
-import pandas as pd
-from sqlmodel import Field, SQLModel
+from sqlmodel import JSON, Column, Field, SQLModel
+from sqlmodel.sql.expression import Select, SelectOfScalar
+
+from power_stash.models.request import BaseRequest, RequestStatus
 
 
 class BaseTableModel(ABC, SQLModel):
     uid: str = Field(
         default=None,
         primary_key=True,
-        description="Assigned automatically using area and timestamp.",
+        description="Assigned automatically model's fields.",
     )
+
+
+class RequestStatusModel(BaseTableModel):
+    start: dt.datetime
+    end: dt.datetime
+    status: RequestStatus
+    request: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
+
+    @classmethod
+    def from_request(cls, request: BaseRequest) -> "RequestStatusModel":  # noqa: ANN102
+        """Create a RequestStatusModel instance from a BaseRequest."""
+        if request.status is None:
+            raise ValueError("Cannot define a request status model without status!")
+        return cls(
+            uid=f"{hash(request)!s}",
+            start=request.start,
+            end=request.end,
+            status=request.status,
+            request=request.model_dump(mode="json"),
+        )
 
 
 class DatabaseRepository(Protocol):
@@ -20,18 +43,22 @@ class DatabaseRepository(Protocol):
         """Initialise database."""
         pass
 
-    def exists(self, *, record: BaseTableModel) -> bool:
+    def exists(self, *, record: BaseTableModel) -> None:
         """Check if the record already exists in database."""
         pass
 
-    def add(self, *, record: BaseTableModel) -> bool:
+    def add(self, *, record: BaseTableModel) -> None:
         """Add record to database."""
         pass
 
-    def bulk_add(self, *, records: list[BaseTableModel]) -> bool:
+    def add_or_update(self, record: BaseTableModel) -> None:
+        """Add or Update a record."""
+        pass
+
+    def bulk_add(self, *, records: list[BaseTableModel]) -> None:
         """Bulk add records, with update logic."""
         pass
 
-    def query(self, *, table_name: str, query: str) -> pd.DataFrame:
+    def query(self, *, statement: Select | SelectOfScalar, return_df: bool = False) -> None:
         """Query a table."""
         pass

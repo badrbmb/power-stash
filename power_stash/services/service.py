@@ -1,5 +1,4 @@
 import datetime as dt
-import json
 import time
 from pathlib import Path
 from typing import Callable
@@ -11,10 +10,16 @@ from dask.bag.core import Bag, from_sequence
 from power_stash.config import ERROR_DIR
 from power_stash.models.fetcher import FetcherInterface
 from power_stash.models.processor import BaseProcessor
-from power_stash.models.request import BaseRequest, BaseRequestBuilder
-from power_stash.models.storage.database import BaseTableModel, DatabaseRepository
+from power_stash.models.request import BaseRequest, BaseRequestBuilder, RequestStatus
+from power_stash.models.storage.database import (
+    BaseTableModel,
+    DatabaseRepository,
+    RequestStatusModel,
+)
 
 logger = structlog.get_logger()
+
+DEFAULT_MONTHLY_CHUNKS = 1
 
 
 class PowerConsumerService:
@@ -41,22 +46,26 @@ class PowerConsumerService:
         self,
         start: dt.datetime,
         end: dt.datetime,
+        chunk_months: int,
     ) -> list[BaseRequest]:
         return self.request_builder.build_default_requests(
             start=start,
             end=end,
+            chunk_months=chunk_months,
         )
 
     def _create_repository(self) -> DatabaseRepository:
         return self.repository_factory()
 
-    def _save_errors(self, request: BaseRequest) -> Path:
-        """Helper function to save locally failed requests for investigation."""
-        record_json = request.model_dump(mode="json")
-        out_path = self.error_logs_dir / f"{hash(request)!s}.json"
-        with open(out_path, "w") as f:
-            json.dump(record_json, f)
-        return out_path
+    def _update_registry(
+        self,
+        repository: DatabaseRepository,
+        request: BaseRequest,
+    ) -> RequestStatusModel:
+        """Helper function to save status of different requets."""
+        request_status = RequestStatusModel.from_request(request)
+        repository.add_or_update(record=request_status)
+        return request_status
 
     def _download(self, request: BaseRequest) -> tuple[pd.DataFrame | None, BaseRequest]:
         logger.debug(
@@ -80,6 +89,7 @@ class PowerConsumerService:
         except Exception as e:
             records = None
             request.error = str(e)
+            request.status = RequestStatus.FAILURE
             logger.error(
                 event="Failed transforming request!",
                 request=request,
@@ -90,17 +100,21 @@ class PowerConsumerService:
     def _add_to_repository(
         self,
         records_request: tuple[list[BaseTableModel] | None, BaseRequest],
-    ) -> Path | None:
+    ) -> RequestStatusModel:
         """Helper function to filter out existing records and add new one."""
         records, request = records_request
+        repository = self._create_repository()
         if records is not None:
             # store records in db
-            repository = self._create_repository()
             repository.bulk_add(records=records)
-            return
-        # store failed requests for investigation
-        error_path = self._save_errors(request)
-        return error_path
+            # update status
+            request.status = RequestStatus.SUCCESS
+        else:
+            if request.status is None:
+                request.status = RequestStatus.FAILURE
+        # update registry
+        request_status = self._update_registry(repository=repository, request=request)
+        return request_status
 
     def _build_dask_pipeline(self, all_requests: list[BaseRequest]) -> Bag:
         # TODO: add option to save failed requests for debug...
@@ -122,15 +136,21 @@ class PowerConsumerService:
         start: dt.datetime,
         end: dt.datetime,
         scheduler: str | None = None,
+        chunk_months: int = DEFAULT_MONTHLY_CHUNKS,
     ) -> None:
         """Download all power data between start and end timestamps."""
         logger.info(
             event="Download data: START",
             start=start,
             end=end,
+            chunks=f"by {chunk_months} month(s)",
         )
 
-        all_requests = self._build_default_requests(start=start, end=end)
+        all_requests = self._build_default_requests(
+            start=start,
+            end=end,
+            chunk_months=chunk_months,
+        )
 
         logger.debug(
             event="Built requests.",

@@ -1,8 +1,15 @@
 import datetime as dt
 import hashlib
 from abc import ABC, abstractmethod
+from enum import Enum
 
 from pydantic import BaseModel, ConfigDict, ValidationError, field_validator
+
+
+class RequestStatus(Enum):
+    SUCCESS = "success"
+    FAILURE = "failure"
+    NO_DATA = "no data"
 
 
 class BaseRequest(BaseModel):
@@ -10,6 +17,7 @@ class BaseRequest(BaseModel):
 
     start: dt.datetime
     end: dt.datetime
+    _status: RequestStatus | None = None
 
     @field_validator("start", "end")
     def validate_date(cls, v: dt.datetime) -> dt.datetime:
@@ -23,6 +31,16 @@ class BaseRequest(BaseModel):
         serialized_data = self.model_dump_json().encode("utf-8")
         return int(hashlib.sha1(serialized_data).hexdigest(), 16)  # noqa: S324
 
+    @property
+    def status(self) -> RequestStatus | None:
+        """The ingestion status of teh request."""
+        return self._status
+
+    @status.setter
+    def status(self, value: RequestStatus) -> None:
+        """Set the value of status using the provided value."""
+        self._status = value
+
 
 class BaseRequestBuilder(ABC):
     @abstractmethod
@@ -30,6 +48,7 @@ class BaseRequestBuilder(ABC):
         self,
         start: dt.datetime,
         end: dt.datetime,
+        chunk_months: int | None = None,
     ) -> list[BaseRequest]:
         """Build a series of default requests compatible with a fetcher."""
         pass
