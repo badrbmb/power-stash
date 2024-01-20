@@ -16,16 +16,12 @@ logger = structlog.get_logger()
 
 
 class SqlRepository(DatabaseRepository):
-    def __init__(self) -> None:
+    def __init__(self, init_db: bool = False) -> None:
         self.db_settings = DatabaseSettings()  # type: ignore
         self.engine = create_engine(self.db_settings.connection, echo=False)
-        self.init_db()
+        if init_db:
+            self.init_db()
         self.tables = self.list_tables()
-        logger.debug(
-            event="Init SQL repository.",
-            db_settings=self.db_settings,
-            tables=self.tables,
-        )
 
     @staticmethod
     def create_hypertable(session: Session, model: BaseTableModel, time_column_name: str) -> None:
@@ -56,6 +52,11 @@ class SqlRepository(DatabaseRepository):
         with Session(self.engine) as session:
             for model, time_column_name in hypter_tables:
                 self.create_hypertable(session, model, time_column_name)
+        logger.debug(
+            event="Init SQL repository.",
+            db_settings=self.db_settings,
+            tables=self.tables,
+        )
 
     def exists(self, *, record: BaseTableModel) -> bool:
         """Check if the record already exists in database."""
@@ -86,8 +87,7 @@ class SqlRepository(DatabaseRepository):
         with Session(self.engine) as session:
             existing_record = session.get(type(record), record.uid)
             if existing_record:
-                # Assuming record is a dictionary-like object
-                for field, value in record.items():
+                for field, value in record.model_dump().items():
                     if field != "uid":
                         setattr(existing_record, field, value)
                 session.commit()
