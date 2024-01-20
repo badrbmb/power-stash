@@ -187,7 +187,7 @@ def download_data(
                 end=end_timestamp,
                 # scheduler option: "threads", "process" or "synchronous" to override default.
                 # more info: https://docs.dask.org/en/stable/scheduling.html
-                scheduler="threads",
+                scheduler=None,
             )
     except Exception as e:
         raise e

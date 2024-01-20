@@ -18,7 +18,18 @@ logger = structlog.get_logger()
 class SqlRepository(DatabaseRepository):
     def __init__(self, init_db: bool = False) -> None:
         self.db_settings = DatabaseSettings()  # type: ignore
-        self.engine = create_engine(self.db_settings.connection, echo=False)
+        self.engine = create_engine(
+            self.db_settings.connection,
+            echo=False,
+            pool_pre_ping=True,
+            # pool_size=40,
+            # connect_args={
+            #     "keepalives": 1,
+            #     "keepalives_idle": 30,
+            #     "keepalives_interval": 10,
+            #     "keepalives_count": 5,
+            # },
+        )
         if init_db:
             self.init_db()
         self.tables = self.list_tables()

@@ -13,7 +13,7 @@
             "console": "integratedTerminal",
             "justMyCode": false,
             "args": [
-                "--start", "2023-12-01",
+                "--start", "2020-01-01",
                 "--end", "2024-01-15",
                 "--source", "entsoe",
                 "--repository-type", "database",

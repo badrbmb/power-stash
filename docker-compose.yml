@@ -1,13 +1,39 @@
-version: '3.7'
+version: '3.8'
+
 services:
   timescaledb:
     image: timescale/timescaledb:latest-pg14
-    restart: unless-stopped
+    restart: on-failure
+    networks:
+      - my_network
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-    ports:
-      - "5432:5432"
     volumes:
       - ./data/postgresql_data:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"
+  
+  pgbouncer:
+    image: edoburu/pgbouncer:latest
+    restart: on-failure
+    networks:
+      - my_network
+    environment:
+      DB_HOST: timescaledb
+      DB_PORT: 5432
+      DB_USER: ${POSTGRES_USER}
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      POOL_MODE: transaction
+      MAX_DB_CONNECTIONS: 100
+      DEFAULT_POOL_SIZE: 40
+      AUTH_TYPE: scram-sha-256
+    ports:
+      - "5432:5432"
+    depends_on:
+      - timescaledb
+
+
+networks:
+  my_network:
