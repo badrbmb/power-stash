@@ -60,9 +60,11 @@ class PowerConsumerService:
     def _filter_new_or_failed_request(
         self,
         request: BaseRequest,
+        repository: DatabaseRepository | None = None,
     ) -> bool:
         """Filter out successful requests."""
-        repository = self._create_repository()
+        if repository is None:
+            repository = self._create_repository()
         request_status = RequestStatus.from_request(request)
         existing_record = repository.get(
             record_type=type(request_status),
@@ -70,7 +72,7 @@ class PowerConsumerService:
         )
         if existing_record is None:
             return True
-        return existing_record.status != RequestStatusType.SUCCESS
+        return existing_record.status == RequestStatusType.FAILURE
 
     def _download(self, request: BaseRequest) -> tuple[pd.DataFrame | None, BaseRequest]:
         logger.debug(
@@ -79,6 +81,9 @@ class PowerConsumerService:
         )
         try:
             df_raw = self.fetcher.fetch_data(request=request)
+            if df_raw is None:
+                # there are no data to fetch in this case, set status
+                request.status = RequestStatusType.NO_DATA
         except Exception as e:
             logger.error(
                 event="Failed fetching data.",
@@ -86,9 +91,10 @@ class PowerConsumerService:
                 request=request,
             )
             request.status = RequestStatusType.FAILURE
+            df_raw = None
+        if df_raw is None:
             repository = self._create_repository()
             self._update_registry(repository=repository, request=request)
-            df_raw = None
         return df_raw, request
 
     def _transform(
@@ -136,8 +142,6 @@ class PowerConsumerService:
         # TODO: add option to save failed requests for debug...
         dask_bag = (
             from_sequence(all_requests)
-            # filter already sucessful requests
-            .filter(self._filter_new_or_failed_request)
             .map(self._download)
             # filter out failed downloads
             .filter(lambda x: x[0] is not None)
@@ -169,11 +173,23 @@ class PowerConsumerService:
             chunk_months=chunk_months,
         )
 
+        # make sure db and tables are ready
+        repository = self._create_repository()
+        repository.init_db()
+
+        # filter new requests
+        all_new_requests = [
+            t
+            for t in all_requests
+            if self._filter_new_or_failed_request(request=t, repository=repository)
+        ]
+
         logger.debug(
             event="Built requests.",
             count_requests=len(all_requests),
+            count_new_request=len(all_new_requests),
         )
-        pipeline = self._build_dask_pipeline(all_requests)
+        pipeline = self._build_dask_pipeline(all_new_requests)
 
         list_status: list[RequestStatus] = pipeline.compute(scheduler=scheduler)
 
