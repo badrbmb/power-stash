@@ -71,7 +71,10 @@ class EntsoeRequestBuilder(BaseRequestBuilder):
         for _start, _end in starts_ends:
             for area in self.areas:
                 for request_type in self.request_types:
-                    if request_type != RequestType.CONSUMPTION:
+                    if request_type not in [
+                        # RequestType.INSTALLED_GENERATION_CAPACITY,
+                        RequestType.CONSUMPTION,
+                    ]:
                         continue
                     new_request = EntsoeRequest(
                         start=_start,

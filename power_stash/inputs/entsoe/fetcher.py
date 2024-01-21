@@ -120,6 +120,8 @@ class EntsoeFetcher(FetcherInterface):
                         f"fetch_data for request_type={request.request_type} not implemented!",
                     )
             result = result.tz_convert("UTC")
+            # drop potential duplicates
+            result.drop_duplicates(inplace=True)
         except NoMatchingDataError:
             # the specified area does not have any results
             logger.debug(
@@ -132,5 +134,5 @@ class EntsoeFetcher(FetcherInterface):
             if "Bad Request for url" not in str(e):
                 raise e
             result = None
-        # convert to UTC and return
+
         return result

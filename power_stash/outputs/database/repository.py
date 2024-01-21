@@ -162,7 +162,10 @@ class SqlRepository(DatabaseRepository):
                     model_type=model_type,
                 )
                 new_records = [t for t in records if t.uid not in existing_uids]
-                return self.bulk_add(records=new_records, engine=engine)
+                for record in new_records:
+                    self.add(record=record, engine=engine)
+                # return self.bulk_add(records=new_records, engine=engine)
+                return True
             except Exception as e:
                 session.rollback()
                 raise e

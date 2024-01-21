@@ -46,16 +46,20 @@ class EntsoeProcessor(BaseProcessor):
                     value_name="Installed Capacity",
                     var_name="resource",
                 )
+                df.dropna(subset=["Installed Capacity"], inplace=True)
                 base_model = models.EntsoeYearlyInstalledCapacity
             case _:
                 raise NotImplementedError(
                     f"fetch_data for request_type={request.request_type} not implemented!",
                 )
 
-        records = df.apply(
-            lambda x: base_model.from_raw_record(data=x, area=request.area),
-            axis=1,
-        ).tolist()
+        if len(df) > 0:
+            records = df.apply(
+                lambda x: base_model.from_raw_record(data=x, area=request.area),
+                axis=1,
+            ).tolist()
+        else:
+            records = []
 
         del df
 
