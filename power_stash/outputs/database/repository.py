@@ -3,7 +3,7 @@ from typing import Any, Optional, Sequence, Type
 import pandas as pd
 import structlog
 from pandas.core.api import DataFrame as DataFrame
-from sqlalchemy import text
+from sqlalchemy import Engine, text
 from sqlalchemy.exc import NotSupportedError
 from sqlmodel import Session, create_engine, select
 from sqlmodel.sql.expression import Select, SelectOfScalar
@@ -18,7 +18,12 @@ logger = structlog.get_logger()
 class SqlRepository(DatabaseRepository):
     def __init__(self, init_db: bool = False) -> None:
         self.db_settings = DatabaseSettings()  # type: ignore
-        self.engine = create_engine(
+        if init_db:
+            self.init_db()
+        self.tables = self.list_tables()
+
+    def _get_connection(self) -> Engine:
+        return create_engine(
             self.db_settings.connection,
             echo=False,
             pool_pre_ping=True,
@@ -30,9 +35,6 @@ class SqlRepository(DatabaseRepository):
             #     "keepalives_count": 5,
             # },
         )
-        if init_db:
-            self.init_db()
-        self.tables = self.list_tables()
 
     @staticmethod
     def create_hypertable(session: Session, model: BaseTableModel, time_column_name: str) -> None:
@@ -59,8 +61,9 @@ class SqlRepository(DatabaseRepository):
 
     def init_db(self) -> None:
         """Create all tables."""
-        SQLModel.metadata.create_all(bind=self.engine, checkfirst=True)
-        with Session(self.engine) as session:
+        engine = self._get_connection()
+        SQLModel.metadata.create_all(bind=engine, checkfirst=True)
+        with Session(engine) as session:
             for model, time_column_name in hypter_tables:
                 self.create_hypertable(session, model, time_column_name)
         logger.debug(
@@ -71,8 +74,9 @@ class SqlRepository(DatabaseRepository):
 
     def exists(self, *, record: BaseTableModel) -> bool:
         """Check if the record already exists in database."""
+        engine = self._get_connection()
         record_model = type(record)
-        with Session(self.engine) as session:
+        with Session(engine) as session:
             statement = select(record_model.uid).where(record_model.uid == record.uid)
             result = session.exec(statement).first()
             return result is not None
@@ -84,18 +88,21 @@ class SqlRepository(DatabaseRepository):
 
     def drop_tables(self) -> None:
         """Drop all tables."""
-        BaseTableModel.metadata.drop_all(bind=self.engine)
+        engine = self._get_connection()
+        BaseTableModel.metadata.drop_all(bind=engine)
 
     def add(self, *, record: BaseTableModel) -> bool:
         """Add record."""
-        with Session(self.engine) as session:
+        engine = self._get_connection()
+        with Session(engine) as session:
             session.add(record)
             session.commit()
         return True
 
     def add_or_update(self, *, record: BaseTableModel) -> bool:
         """Add or update record."""
-        with Session(self.engine) as session:
+        engine = self._get_connection()
+        with Session(engine) as session:
             existing_record = session.get(type(record), record.uid)
             if existing_record:
                 for field, value in record.model_dump().items():
@@ -111,7 +118,8 @@ class SqlRepository(DatabaseRepository):
         self,
         model_type: BaseTableModel,
     ) -> Sequence[str]:
-        with Session(self.engine) as session:
+        engine = self._get_connection()
+        with Session(engine) as session:
             statement = select(model_type.uid)
             result = session.exec(statement)
             return result.fetchall()
@@ -135,7 +143,8 @@ class SqlRepository(DatabaseRepository):
         new_records = [t for t in records if t.uid not in existing_uids]
 
         # store all new records
-        with Session(self.engine) as session:
+        engine = self._get_connection()
+        with Session(engine) as session:
             try:
                 with session.begin():
                     session.bulk_save_objects(new_records)
@@ -160,7 +169,8 @@ class SqlRepository(DatabaseRepository):
         record_uid: str,
     ) -> Optional[BaseTableModel]:
         """Get a record by uid."""
-        with Session(self.engine) as session:
+        engine = self._get_connection()
+        with Session(engine) as session:
             return session.get(record_type, record_uid)
 
     def query(
@@ -170,9 +180,10 @@ class SqlRepository(DatabaseRepository):
         return_df: bool = True,
     ) -> Sequence[BaseTableModel | Any] | pd.DataFrame:
         """Query based on select statement."""
+        engine = self._get_connection()
         if not return_df:
-            with Session(self.engine) as session:
+            with Session(engine) as session:
                 results = session.exec(statement)
                 return results.fetchall()
         else:
-            return pd.read_sql(sql=statement, con=self.engine)
+            return pd.read_sql(sql=statement, con=engine)
