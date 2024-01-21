@@ -59,6 +59,14 @@ class DatabaseRepository(Protocol):
         """Bulk add records, with update logic."""
         pass
 
+    def get_existing_uids(
+        self,
+        model_type: BaseTableModel,
+        condition: bool | None = None,
+    ) -> list[str]:
+        """Return a list of unique identifier in a table."""
+        pass
+
     def get(
         self,
         *,

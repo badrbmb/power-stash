@@ -1,4 +1,5 @@
 import datetime as dt
+import multiprocessing
 import time
 from typing import Callable
 
@@ -14,6 +15,8 @@ from power_stash.models.storage.database import BaseTableModel, DatabaseReposito
 logger = structlog.get_logger()
 
 DEFAULT_MONTHLY_CHUNKS = 1
+
+DEFAULT_N_PARTITIONS = multiprocessing.cpu_count() * 2
 
 
 class PowerConsumerService:
@@ -138,10 +141,9 @@ class PowerConsumerService:
         request_status = self._update_registry(repository=repository, request=request)
         return request_status
 
-    def _build_dask_pipeline(self, all_requests: list[BaseRequest]) -> Bag:
-        # TODO: add option to save failed requests for debug...
+    def _build_dask_pipeline(self, all_requests: list[BaseRequest], n_partitions: int) -> Bag:
         dask_bag = (
-            from_sequence(all_requests)
+            from_sequence(all_requests, npartitions=n_partitions)
             .map(self._download)
             # filter out failed downloads
             .filter(lambda x: x[0] is not None)
@@ -157,6 +159,7 @@ class PowerConsumerService:
         end: dt.datetime,
         scheduler: str | None = None,
         chunk_months: int = DEFAULT_MONTHLY_CHUNKS,
+        n_partitions: int = DEFAULT_N_PARTITIONS,
     ) -> None:
         """Download all power data between start and end timestamps."""
         start_time = time.perf_counter()
@@ -177,11 +180,13 @@ class PowerConsumerService:
         repository = self._create_repository()
         repository.init_db()
 
-        # filter new requests
+        # filter new requests (retrying failures)
+        existing_uids = repository.get_existing_uids(
+            model_type=RequestStatus,
+            condition=RequestStatus.status != RequestStatusType.FAILURE,
+        )
         all_new_requests = [
-            t
-            for t in all_requests
-            if self._filter_new_or_failed_request(request=t, repository=repository)
+            t for t in all_requests if RequestStatus.from_request(t).uid not in existing_uids
         ]
 
         logger.debug(
@@ -189,7 +194,7 @@ class PowerConsumerService:
             count_requests=len(all_requests),
             count_new_request=len(all_new_requests),
         )
-        pipeline = self._build_dask_pipeline(all_new_requests)
+        pipeline = self._build_dask_pipeline(all_new_requests, n_partitions=n_partitions)
 
         list_status: list[RequestStatus] = pipeline.compute(scheduler=scheduler)
 

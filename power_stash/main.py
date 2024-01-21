@@ -185,9 +185,11 @@ def download_data(
             service.download_data(
                 start=start_timestamp,
                 end=end_timestamp,
-                # scheduler option: "threads", "process" or "synchronous" to override default.
+                # scheduler option: "threads", "multiprocessing" or "synchronous"
+                # to override default.
                 # more info: https://docs.dask.org/en/stable/scheduling.html
-                scheduler=None,
+                scheduler="synchronous",
+                n_partitions=n_workers * threads_per_worker,
             )
     except Exception as e:
         raise e

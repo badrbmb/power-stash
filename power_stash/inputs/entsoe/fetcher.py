@@ -6,7 +6,13 @@ from entsoe.misc import year_blocks
 from entsoe.parsers import parse_generation
 from pandas.tseries.offsets import YearBegin, YearEnd
 from requests import HTTPError
-from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
+from tenacity import (
+    retry,
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_exponential,
+    wait_fixed,
+)
 
 from power_stash.inputs.entsoe.config import EntsoeEnv
 from power_stash.inputs.entsoe.request import EntsoeRequest, RequestType
@@ -61,6 +67,11 @@ class EntsoeFetcher(FetcherInterface):
         df.drop_duplicates(inplace=True)
         return df
 
+    @retry(
+        wait=wait_fixed(MAX_WAIT_PERIOD),
+        stop=stop_after_attempt(MAX_RETRY),
+        retry=retry_if_exception_type(HTTPError),
+    )
     @retry(
         wait=wait_exponential(multiplier=1, max=MAX_WAIT_PERIOD),
         stop=stop_after_attempt(MAX_RETRY),

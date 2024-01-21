@@ -4,7 +4,7 @@ import pandas as pd
 import structlog
 from pandas.core.api import DataFrame as DataFrame
 from sqlalchemy import Engine, text
-from sqlalchemy.exc import NotSupportedError
+from sqlalchemy.exc import IntegrityError, NotSupportedError
 from sqlmodel import Session, create_engine, select
 from sqlmodel.sql.expression import Select, SelectOfScalar
 
@@ -72,9 +72,10 @@ class SqlRepository(DatabaseRepository):
             tables=self.tables,
         )
 
-    def exists(self, *, record: BaseTableModel) -> bool:
+    def exists(self, *, record: BaseTableModel, engine: Engine | None = None) -> bool:
         """Check if the record already exists in database."""
-        engine = self._get_connection()
+        if engine is None:
+            engine = self._get_connection()
         record_model = type(record)
         with Session(engine) as session:
             statement = select(record_model.uid).where(record_model.uid == record.uid)
@@ -91,17 +92,19 @@ class SqlRepository(DatabaseRepository):
         engine = self._get_connection()
         BaseTableModel.metadata.drop_all(bind=engine)
 
-    def add(self, *, record: BaseTableModel) -> bool:
+    def add(self, *, record: BaseTableModel, engine: Engine | None = None) -> bool:
         """Add record."""
-        engine = self._get_connection()
+        if engine is None:
+            engine = self._get_connection()
         with Session(engine) as session:
             session.add(record)
             session.commit()
         return True
 
-    def add_or_update(self, *, record: BaseTableModel) -> bool:
+    def add_or_update(self, *, record: BaseTableModel, engine: Engine | None = None) -> bool:
         """Add or update record."""
-        engine = self._get_connection()
+        if engine is None:
+            engine = self._get_connection()
         with Session(engine) as session:
             existing_record = session.get(type(record), record.uid)
             if existing_record:
@@ -114,13 +117,17 @@ class SqlRepository(DatabaseRepository):
                 session.commit()
         return True
 
-    def _get_existing_records_uids(
+    def get_existing_uids(
         self,
         model_type: BaseTableModel,
+        condition: bool | None = None,
     ) -> Sequence[str]:
+        """Return a list of unique identifier in a table."""
         engine = self._get_connection()
         with Session(engine) as session:
             statement = select(model_type.uid)
+            if condition is not None:
+                statement = statement.where(condition)
             result = session.exec(statement)
             return result.fetchall()
 
@@ -128,6 +135,7 @@ class SqlRepository(DatabaseRepository):
         self,
         *,
         records: list[BaseTableModel],
+        engine: Engine | None = None,
     ) -> bool:
         """Bulk add records, with update logic."""
         if not records:
@@ -136,18 +144,25 @@ class SqlRepository(DatabaseRepository):
         # get SQLModel class
         model_type = type(records[0])
 
-        # remove existing records
-        existing_uids = self._get_existing_records_uids(
-            model_type=model_type,
-        )
-        new_records = [t for t in records if t.uid not in existing_uids]
-
         # store all new records
-        engine = self._get_connection()
+        if engine is None:
+            engine = self._get_connection()
         with Session(engine) as session:
             try:
                 with session.begin():
-                    session.bulk_save_objects(new_records)
+                    session.bulk_save_objects(
+                        records,
+                        preserve_order=False,
+                        update_changed_only=False,
+                    )
+            except IntegrityError:
+                session.rollback()
+                logger.debug(event="Bulk insert failed, removing existing records.")
+                existing_uids = self.get_existing_uids(
+                    model_type=model_type,
+                )
+                new_records = [t for t in records if t.uid not in existing_uids]
+                return self.bulk_add(records=new_records, engine=engine)
             except Exception as e:
                 session.rollback()
                 raise e
@@ -157,8 +172,8 @@ class SqlRepository(DatabaseRepository):
         logger.debug(
             event="Bulk add records successful!",
             destination_table=model_type.__name__,
-            count_new_records=len(new_records),
-            count_requested_records=len(records),
+            count_new_records=len(records),
+            # count_requested_records=len(records),
         )
         return True
 
